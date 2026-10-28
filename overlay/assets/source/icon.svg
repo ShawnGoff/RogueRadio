@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#241a0d"/><stop offset="1" stop-color="#0d0a07"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="46%" r="52%">
+      <stop offset="0" stop-color="#ff8c1a" stop-opacity=".34"/><stop offset="1" stop-color="#ff8c1a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd100"/><stop offset="1" stop-color="#ff8c1a"/>
+    </linearGradient>
+    <linearGradient id="blade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff2b3"/><stop offset=".5" stop-color="#ffe066"/><stop offset=".5" stop-color="#ffc21a"/><stop offset="1" stop-color="#ff9d1a"/>
+    </linearGradient>
+    <linearGradient id="guard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffb347"/><stop offset="1" stop-color="#d9760a"/>
+    </linearGradient>
+    <clipPath id="sq"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+  </defs>
+
+  <!-- macOS-style rounded square -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <g clip-path="url(#sq)">
+    <rect x="100" y="100" width="824" height="824" fill="url(#glow)"/>
+    <!-- subtle radio-wave arcs behind -->
+    <g fill="none" stroke="#ff8c1a" stroke-opacity=".12" stroke-width="8">
+      <circle cx="512" cy="540" r="250"/><circle cx="512" cy="540" r="330"/><circle cx="512" cy="540" r="410"/>
+    </g>
+  </g>
+  <rect x="104" y="104" width="816" height="816" rx="181" fill="none" stroke="#ffd100" stroke-opacity=".35" stroke-width="6"/>
+
+  <!-- equalizer bars (bottom aligned at y=760), stepping down away from the dagger -->
+  <g fill="url(#bar)">
+    <rect x="328" y="470" width="46" height="290" rx="23"/>
+    <rect x="256" y="548" width="46" height="212" rx="23"/>
+    <rect x="184" y="620" width="46" height="140" rx="23"/>
+    <rect x="650" y="470" width="46" height="290" rx="23"/>
+    <rect x="722" y="548" width="46" height="212" rx="23"/>
+    <rect x="794" y="620" width="46" height="140" rx="23"/>
+  </g>
+
+  <!-- dagger as the centre bar -->
+  <polygon points="512,214 556,404 556,566 468,566 468,404" fill="url(#blade)"/>
+  <line x1="512" y1="248" x2="512" y2="560" stroke="#b86a08" stroke-opacity=".55" stroke-width="6" stroke-linecap="round"/>
+  <rect x="404" y="566" width="216" height="34" rx="17" fill="url(#guard)"/>
+  <rect x="490" y="600" width="44" height="116" rx="12" fill="#ffb347"/>
+  <g stroke="#a85f06" stroke-opacity=".6" stroke-width="5" stroke-linecap="round">
+    <line x1="490" y1="628" x2="534" y2="628"/><line x1="490" y1="654" x2="534" y2="654"/><line x1="490" y1="680" x2="534" y2="680"/>
+  </g>
+  <circle cx="512" cy="738" r="34" fill="url(#guard)"/>
+  <circle cx="512" cy="738" r="13" fill="#0d0a07" fill-opacity=".55"/>
+</svg>

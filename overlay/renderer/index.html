@@ -1,0 +1,212 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src https://i.scdn.co https://*.scdn.co data:; style-src 'unsafe-inline'; script-src 'self'">
+<title>Rogue Radio Overlay</title>
+<style>
+  :root {
+    --gold: #ffd100; --amber: #ff8c1a; --gold-dark: #8c6108;
+    --bg: rgba(15, 12, 9, 0.92); --panel: #1f190f; --text: #fff3cc; --dim: #998c73; --err: #ff4d40;
+  }
+  * { box-sizing: border-box; margin: 0; user-select: none; }
+  html, body { height: 100%; background: transparent; font: 13px -apple-system, "Segoe UI", sans-serif; color: var(--text); overflow: hidden; }
+
+  #card {
+    position: absolute; inset: 0; background: var(--bg); border: 1px solid #735a1f; border-radius: 8px;
+    padding: 14px 14px 10px; display: grid; grid-template-columns: 96px 1fr; grid-template-rows: auto; gap: 10px 12px;
+    align-content: start; transition: opacity .5s;
+  }
+  #card::before {                     /* gold -> amber accent along the top */
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 8px 8px 0 0;
+    background: linear-gradient(90deg, var(--gold-dark), var(--amber));
+  }
+  body.move #card { outline: 2px dashed var(--gold); -webkit-app-region: drag; }
+  body.move button, body.move input, body.move #barWrap, body.move .row { -webkit-app-region: no-drag; }
+  body.offline #card { opacity: .38; }
+  body.faded #card { opacity: 0; }                        /* auto-hide */
+  body.grab #card { cursor: grab; outline: 1px dashed var(--gold); }
+  body.dragging #card { cursor: grabbing; }
+
+  #art { width: 96px; height: 96px; border: 1px solid var(--gold); background: var(--panel) center/cover; border-radius: 3px; }
+  #info { min-width: 0; height: 96px; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
+  #name { font-size: 16px; font-weight: 600; color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #artist { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #barWrap { padding: 5px 0; margin-top: 2px; cursor: pointer; }      /* taller click target for seeking */
+  #bar { height: 6px; background: var(--panel); border-radius: 3px; overflow: hidden; }
+  #fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--gold-dark), var(--amber)); }
+  #metaRow { display: flex; align-items: center; justify-content: space-between; height: 22px; }
+  #time { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+
+  /* main transport row: the only bordered buttons */
+  .controls { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; }
+  button {
+    width: 34px; height: 26px; border: 1px solid #735a1f; border-radius: 4px; background: #241c10;
+    color: var(--text); font-size: 14px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  }
+  button:hover { background: #3a2c12; color: var(--gold); border-color: var(--gold); }
+  button:active { background: #4d3a10; }
+  button.on { color: var(--gold); border-color: var(--gold); background: #3f2f0c; }
+  button svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  #play { width: 44px; }
+  #vol { flex: 1; min-width: 60px; margin-left: 8px; accent-color: var(--amber); cursor: pointer; }
+  #expandBtn { display: none; }
+
+  /* secondary actions: quiet, borderless icons beside the time */
+  .icons { display: flex; align-items: center; gap: 1px; margin-right: -4px; }
+  button.ghost { width: 24px; height: 22px; border: 0; background: transparent; color: var(--dim); border-radius: 4px; }
+  button.ghost:hover { background: #2a2012; color: var(--gold); }
+  button.ghost.on { color: var(--gold); background: #2a2012; }
+  button.ghost.liked { color: #ff5c7a; }
+  button.ghost.liked svg { fill: currentColor; }
+  button.ghost.unknown { opacity: .5; }
+  body.local #like, body.local #addBtn, body.local #queueBtn, body.local #devBtn, body.local #libBtn { opacity: .35; }   /* need a connected account */
+
+  /* top-right corner: the lock is always visible (dim); settings + mini appear when you hover the card */
+  #chrome { position: absolute; top: 4px; right: 6px; display: flex; gap: 1px; border-radius: 5px; }
+  #card:hover #chrome { background: rgba(15,12,9,.9); }
+  #chrome .hoverOnly { opacity: 0; width: 0; transition: opacity .2s; overflow: hidden; }
+  #card:hover #chrome .hoverOnly { opacity: 1; width: 24px; }
+  #lockBtn { opacity: .5; }
+  #card:hover #lockBtn, body.unlocked #lockBtn { opacity: 1; }
+  #lockBtn .open { display: none; }
+  body.unlocked #lockBtn { color: var(--gold); }
+  body.unlocked #lockBtn .closed { display: none; }
+  body.unlocked #lockBtn .open { display: block; }
+  #name { margin-right: 28px; }                         /* keep long titles clear of the lock */
+  body.mini #name { margin-right: 0; }
+
+  /* unlocked: the whole card is draggable, so say so */
+  body.unlocked #card { cursor: grab; outline: 1px dashed var(--gold-dark); outline-offset: -3px; }
+  body.unlocked.dragging #card { cursor: grabbing; }
+
+  /* resize handle: appears when you hover the overlay (the lock only guards position) */
+  #grip { position: absolute; right: 3px; bottom: 3px; width: 14px; height: 14px; cursor: nwse-resize; opacity: 0; transition: opacity .2s; z-index: 5;
+          background: linear-gradient(135deg, transparent 0 46%, var(--gold) 46% 54%, transparent 54% 70%, var(--gold) 70% 78%, transparent 78%); }
+  #card:hover #grip { opacity: .55; }
+  body.unlocked #grip { opacity: .9; }
+  #grip:hover, #card:hover #grip:hover { opacity: 1; }
+  body.mini #grip { display: none; }
+
+  /* tooltips */
+  #tip { position: absolute; z-index: 20; display: none; pointer-events: none; white-space: nowrap; font-size: 11px; line-height: 14px;
+         padding: 4px 8px; border-radius: 5px; background: #0b0906; border: 1px solid var(--gold-dark); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+  #tip.show { display: block; }
+  #tip .hk { color: var(--gold); margin-left: 8px; letter-spacing: .04em; }
+
+  /* expandable panel: lyrics / playlists / queue / devices */
+  #drawer { grid-column: 1 / -1; height: 120px; display: none; position: relative; }
+  body.drawer-open #drawer { display: block; }
+  #lyrics { display: none; height: 100%; overflow: hidden; text-align: center; font-size: 13px; line-height: 18px; color: var(--dim);
+            flex-direction: column; justify-content: center; gap: 6px; }
+  body[data-drawer="lyrics"] #lyrics { display: flex; }
+  /* lines wrap (max 2 rows each) instead of being cut off */
+  #lyrics div { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; word-break: break-word; }
+  #lyrics .cur { color: var(--gold); font-weight: 600; font-size: 14px; line-height: 19px; }
+  #lyrics .near { color: var(--text); }
+  body[data-drawer="lyrics"] #lyrics.plain { display: block; overflow-y: auto; line-height: 17px; color: var(--text); white-space: pre-wrap; padding: 0 6px; }
+  #lyrics.plain::-webkit-scrollbar, #list::-webkit-scrollbar { width: 6px; }
+  #lyrics.plain::-webkit-scrollbar-thumb, #list::-webkit-scrollbar-thumb { background: var(--gold-dark); border-radius: 3px; }
+
+  #list { display: none; height: 100%; overflow-y: auto; }
+  body[data-drawer="playlists"] #list, body[data-drawer="queue"] #list, body[data-drawer="devices"] #list { display: block; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 26px; padding: 0 8px; border-radius: 4px; white-space: nowrap; overflow: hidden; }
+  .row .name { overflow: hidden; text-overflow: ellipsis; }
+  .row .sub { color: var(--dim); font-size: 11px; flex: none; }
+  .row.click { cursor: pointer; }
+  .row.click:hover { background: #3a2c12; color: var(--gold); }
+  .row.active .name { color: var(--gold); }
+  .row.done .sub { color: var(--gold); }
+  .empty { text-align: center; color: var(--dim); padding-top: 46px; line-height: 18px; }
+
+  #foot { grid-column: 1 / -1; display: none; justify-content: space-between; margin-top: -4px; font-size: 10px; line-height: 12px; color: var(--dim); }
+  body.drawer-open #foot { display: flex; }
+
+  #msg { position: absolute; left: 50%; transform: translateX(-50%); bottom: 4px; width: max-content; max-width: 92%; text-align: center;
+         font-size: 11px; color: var(--err); display: none; pointer-events: none; background: rgba(15,12,9,.94); padding: 3px 9px; border-radius: 4px; border: 1px solid #3a2c12; }
+  body.drawer-open #msg { bottom: 22px; }
+  #msg.show, body.offline #msg, body.auth #msg { display: block; }
+  #msg.ok { color: var(--gold); }
+
+  /* mini mode: art, title/artist/progress, and previous / play / next */
+  body.mini #card { grid-template-columns: 48px 1fr auto; padding: 14px; align-items: center; gap: 0 12px; }
+  body.mini #art { width: 48px; height: 48px; }
+  body.mini #info { height: 48px; gap: 2px; }
+  body.mini #name { font-size: 13px; }
+  body.mini #artist { font-size: 11px; }
+  body.mini #barWrap { padding: 2px 0; margin-top: 0; }
+  body.mini #time, body.mini .icons, body.mini #drawer, body.mini #foot, body.mini #chrome { display: none; }
+  body.mini #metaRow { display: none; }
+  body.mini #controls { grid-column: 3; grid-row: 1; gap: 4px; }
+  body.mini #controls #shuffle, body.mini #controls #repeat, body.mini #controls #vol { display: none; }
+  body.mini #controls button { width: 28px; height: 26px; }
+  body.mini #controls #play { width: 36px; }
+  body.mini #expandBtn { display: inline-flex; margin-left: 4px; }
+</style>
+</head>
+<body>
+  <div id="card">
+    <div id="art"></div>
+    <div id="info">
+      <div id="name">Rogue Radio Overlay</div>
+      <div id="artist">Waiting for Spotify...</div>
+      <div id="barWrap" data-tip="Click to seek"><div id="bar"><div id="fill"></div></div></div>
+      <div id="metaRow">
+        <span id="time">0:00 / 0:00</span>
+        <span class="icons">
+          <button class="ghost" id="like" data-tip="Like">
+            <svg viewBox="0 0 16 16"><path d="M8 14s-6-3.7-6-8.1A3.4 3.4 0 0 1 8 3.8a3.4 3.4 0 0 1 6 2.1C14 10.3 8 14 8 14z"/></svg>
+          </button>
+          <button class="ghost" id="addBtn" data-tip="Add to playlist" data-hk="playlists">
+            <svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
+          </button>
+          <button class="ghost" id="lyricsBtn" data-tip="Lyrics" data-hk="lyrics">&#9835;</button>
+          <button class="ghost" id="queueBtn" data-tip="Queue" data-hk="queue">
+            <svg viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h8"/></svg>
+          </button>
+          <button class="ghost" id="devBtn" data-tip="Devices" data-hk="devices">
+            <svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M5 14h6M8 11v3"/></svg>
+          </button>
+          <button class="ghost" id="libBtn" data-tip="Search & play music" data-hk="library">
+            <svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4"/><path d="M10 10l4 4"/></svg>
+          </button>
+        </span>
+      </div>
+    </div>
+
+    <div class="controls" id="controls">
+      <button id="prev" data-tip="Previous" data-hk="prev">&#9198;</button>
+      <button id="play" data-tip="Play / Pause" data-hk="playPause">&#9654;</button>
+      <button id="next" data-tip="Next" data-hk="next">&#9197;</button>
+      <button id="shuffle" data-tip="Shuffle" data-hk="shuffle">&#8644;</button>
+      <button id="repeat" data-tip="Repeat" data-hk="repeat">&#8635;</button>
+      <button id="expandBtn" data-tip="Expand (or double-click)" data-hk="mini">
+        <svg viewBox="0 0 16 16"><path d="M10 2h4v4M6 14H2v-4M14 2l-5 5M2 14l5-5"/></svg>
+      </button>
+      <input id="vol" type="range" min="0" max="100" value="50" data-tip="Volume">
+    </div>
+
+    <div id="chrome">
+      <button class="ghost hoverOnly" id="miniBtn" data-tip="Mini mode" data-hk="mini">
+        <svg viewBox="0 0 16 16"><path d="M6 2v4H2M10 14v-4h4"/></svg>
+      </button>
+      <button class="ghost hoverOnly" id="gearBtn" data-tip="Settings">&#9881;</button>
+      <button class="ghost" id="lockBtn" data-tip="Lock">
+        <svg class="closed" viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.2"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7"/></svg>
+        <svg class="open" viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.2"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 4.8-1"/></svg>
+      </button>
+    </div>
+
+    <div id="drawer">
+      <div id="lyrics"></div>
+      <div id="list"></div>
+    </div>
+    <div id="foot"><span id="hint"></span><span id="credit">Lyrics Powered by LRCLIB</span></div>
+    <div id="msg"></div>
+    <div id="grip" data-tip="Drag to resize · double-click to reset"></div>
+    <div id="tip"></div>
+  </div>
+  <script src="overlay.js"></script>
+</body>
+</html>

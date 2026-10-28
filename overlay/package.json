@@ -1,0 +1,80 @@
+{
+  "name": "rogue-radio-overlay",
+  "version": "0.1.0",
+  "description": "Spotify overlay with playback controls and global shortcuts",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac",
+    "pack": "electron-builder --mac dir",
+    "test": "node --test test/*.test.js"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.example.rogueradiooverlay",
+    "productName": "Rogue Radio Overlay",
+    "files": [
+      "src/**",
+      "renderer/**",
+      "assets/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../src",
+        "to": "server",
+        "filter": [
+          "**/*",
+          "!.env",
+          "!.env.*",
+          "!README.md",
+          "!.gitignore",
+          "!.DS_Store",
+          "!test/**"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.music",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "identity": null,
+      "icon": "assets/icon.icns",
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "Rogue Radio Overlay controls the Spotify app on your Mac (play, pause, skip, volume) and can close it when you quit."
+      }
+    },
+    "directories": {
+      "output": "dist"
+    },
+    "electronLanguages": [
+      "en",
+      "en-US"
+    ],
+    "compression": "maximum",
+    "dmg": {
+      "format": "UDBZ"
+    }
+  },
+  "dependencies": {
+    "axios": "^1.20.0",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.3"
+  }
+}

@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'">
+<title>Rogue Radio Overlay Settings</title>
+<style>
+  :root { --gold: #ffd100; --amber: #ff8c1a; --gold-dark: #8c6108; --bg: #0f0c09; --panel: #1b150c; --line: #3a2c12; --text: #fff3cc; --dim: #998c73; --err: #ff4d40; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 13px -apple-system, "Segoe UI", sans-serif; padding: 0 22px 22px; user-select: none; }
+  body::before { content: ""; display: block; height: 3px; margin: 0 -22px 18px; background: linear-gradient(90deg, var(--gold-dark), var(--amber)); }
+  h1 { font-size: 18px; color: var(--gold); margin-bottom: 4px; }
+  h2 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--amber); margin: 20px 0 8px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .note { color: var(--dim); font-size: 11px; margin-top: 6px; line-height: 15px; }
+  .warn { color: var(--gold); }
+  button { border: 1px solid #735a1f; border-radius: 5px; background: #241c10; color: var(--text); padding: 4px 10px; font-size: 12px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: #4d3a10; border-color: var(--gold); color: var(--gold); }
+  input[type=range] { accent-color: var(--amber); width: 160px; }
+  input[type=checkbox] { accent-color: var(--amber); width: 16px; height: 16px; }
+  select { background: #241c10; color: var(--text); border: 1px solid #735a1f; border-radius: 5px; padding: 3px 6px; }
+  .status { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); }
+  .dot.ok { background: #5ad17a; } .dot.bad { background: var(--err); } .dot.warn { background: #ffb347; }
+  .keys { display: flex; align-items: center; gap: 6px; }
+  .chip { min-width: 74px; text-align: center; font-variant-numeric: tabular-nums; background: #241c10; border: 1px solid #735a1f; border-radius: 5px; padding: 3px 8px; color: var(--gold); letter-spacing: .06em; }
+  .chip.recording { border-color: var(--gold); color: var(--text); letter-spacing: 0; background: #3f2f0c; }
+  .chip.off { color: var(--dim); }
+  .chip.failed { color: var(--err); border-color: var(--err); }
+  .err { color: var(--err); font-size: 11px; margin-top: 6px; min-height: 14px; }
+  .actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <h1>Settings</h1>
+  <div class="note">Changes apply immediately.</div>
+
+  <h2>Spotify</h2>
+  <div class="card">
+    <div class="row">
+      <div class="status"><span class="dot" id="dot"></span><span id="statusText">Checking...</span></div>
+      <span style="display:flex; gap:6px"><button id="logoutBtn" style="display:none">Disconnect</button><button id="loginBtn" style="display:none"></button></span>
+    </div>
+  </div>
+  <div class="note" id="localNote" style="display:none">No Spotify account is connected, so the overlay controls the Spotify app on this Mac: play, pause, skip, seek, volume, shuffle, repeat and lyrics all work. Connect your account to also unlock likes, playlists, search, queue and devices.</div>
+  <div class="note warn" id="reauth" style="display:none">Like and Add to playlist need extra permission. Click <b>Grant permissions</b> and approve it on the Spotify page.</div>
+
+  <h2>Appearance</h2>
+  <div class="card">
+    <div class="row"><span>Opacity</span><span><input type="range" id="opacity" min="30" max="100" step="5"> <span id="opacityVal"></span></span></div>
+    <div class="row"><span>Size <span class="note">(or unlock and drag the corner)</span></span><span><input type="range" id="scale" min="80" max="200" step="5"> <span id="scaleVal"></span></span></div>
+    <div class="row"><span>Lock overlay position <span class="note">(Shift+drag still moves it)</span></span><input type="checkbox" id="locked"></div>
+    <div class="row"><span>Mini mode <span class="note">(art, title and progress only)</span></span><input type="checkbox" id="mini"></div>
+    <div class="row">
+      <span>Auto-hide when idle</span>
+      <span><input type="checkbox" id="autoHide"> after
+        <select id="autoHideSeconds">
+          <option value="3">3 s</option><option value="6">6 s</option><option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option>
+        </select>
+      </span>
+    </div>
+  </div>
+  <div class="note">Auto-hide fades the overlay out when nothing is happening. It reappears when you hover it, press a shortcut, or the song changes.</div>
+
+  <h2>General</h2>
+  <div class="card">
+    <div class="row"><span>Start at login</span><input type="checkbox" id="startAtLogin"></div>
+    <div class="row">
+      <span>When I quit <span class="note">(if Spotify is running)</span></span>
+      <select id="onQuit">
+        <option value="ask">Ask me</option>
+        <option value="close">Close Spotify too</option>
+        <option value="keep">Leave Spotify running</option>
+      </select>
+    </div>
+    <div class="row" id="dockRow"><span>Show in the Dock</span><input type="checkbox" id="showInDock"></div>
+  </div>
+  <div class="note" id="loginNote"></div>
+  <div class="note" id="dockNote">If the overlay stops appearing above a fullscreen app, turn off "Show in the Dock".</div>
+
+  <h2>Keyboard shortcuts</h2>
+  <div class="card">
+    <div class="row">
+      <span>Shortcut set</span>
+      <select id="preset">
+        <option value="numpad">Ctrl + number pad</option>
+        <option value="altShift">Alt + Shift + letters</option>
+        <option value="custom" id="customOpt" disabled>Custom</option>
+      </select>
+    </div>
+  </div>
+  <div class="note">Number-pad shortcuts hold Ctrl and press a numpad key (keep Num Lock on). No number pad? Choose the Alt + Shift set, or click Change on any row to record your own.</div>
+  <div class="card" id="hotkeys" style="margin-top:10px"></div>
+  <div class="err" id="hotkeyErr"></div>
+  <div class="actions"><button id="resetKeys">Reset to default set</button></div>
+
+  <script src="settings.js"></script>
+</body>
+</html>
