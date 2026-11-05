@@ -9,6 +9,8 @@ const path = require('node:path');
 const { BASE, ACTION, execute, request } = require('./commands');
 const hotkeys = require('./hotkeys');
 const quitHelper = require('./quit');
+const { createTwitchService } = require('./twitch-service');
+const { WHO } = require('./requests');
 
 // Data folder. Earlier versions used ~/.azeroth-radio; move it over once so the saved login carries on.
 const LEGACY_DIR = path.join(os.homedir(), '.azeroth-radio');
@@ -32,7 +34,9 @@ const MAX_SCALE = 2;
 const HEIGHT = { full: 164, drawerExtra: 148, mini: 76 };
 const DRAWERS = ['lyrics', 'playlists', 'queue', 'devices'];
 
-const DEFAULT_SETTINGS = { opacity: 1, autoHide: false, autoHideSeconds: 6, mini: false, showInDock: true, locked: true, scale: 1, onQuit: 'ask' };
+const DEFAULT_SETTINGS = { opacity: 1, autoHide: false, autoHideSeconds: 6, mini: false, showInDock: true, locked: true, scale: 1, onQuit: 'ask',
+  twitchEnabled: false, twitchChannel: '', twitchClientId: '', twitchWho: 'followers', twitchCooldown: 30,
+  twitchPerUser: 2, twitchMaxQueue: 15, twitchMaxMinutes: 8, twitchBlockExplicit: false, twitchBlocklist: '' };
 
 let win, tray, settingsWin, companion;
 let status = 'connecting';      // connecting | ok | auth | permission | offline | error
@@ -84,8 +88,27 @@ function sanitize(patch) {
   if ('locked' in patch) out.locked = !!patch.locked;
   if ('onQuit' in patch && quitHelper.MODES.includes(patch.onQuit)) out.onQuit = patch.onQuit;
   if ('scale' in patch) out.scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Number(patch.scale) || 1));
+  if ('twitchEnabled' in patch) out.twitchEnabled = !!patch.twitchEnabled;
+  if ('twitchChannel' in patch) out.twitchChannel = String(patch.twitchChannel || '').trim().slice(0, 100);
+  if ('twitchClientId' in patch) out.twitchClientId = String(patch.twitchClientId || '').trim().slice(0, 60);
+  if ('twitchWho' in patch && WHO.includes(patch.twitchWho)) out.twitchWho = patch.twitchWho;
+  const whole = (key, lo, hi) => { if (key in patch) out[key] = Math.min(hi, Math.max(lo, Math.round(Number(patch[key]))) || lo); };
+  whole('twitchCooldown', 0, 600); whole('twitchPerUser', 1, 20); whole('twitchMaxQueue', 1, 50); whole('twitchMaxMinutes', 1, 60);
+  if ('twitchBlockExplicit' in patch) out.twitchBlockExplicit = !!patch.twitchBlockExplicit;
+  if ('twitchBlocklist' in patch) out.twitchBlocklist = String(patch.twitchBlocklist || '').slice(0, 2000);
   return out;
 }
+
+// ---- Twitch song requests ---------------------------------------------------
+const twitch = createTwitchService({
+  dataDir: DATA_DIR,
+  getSettings,
+  request,
+  log,
+  openExternal: url => { if (/^https:\/\/(www\.)?twitch\.tv\//.test(url)) shell.openExternal(url); },
+  onEvent: ev => { if (ev.type === 'added' || ev.problem) send('request', ev); notifySettings(); },
+  onChange: () => notifySettings(),
+});
 
 // ---- companion server ------------------------------------------------------
 async function companionUp() {
@@ -121,6 +144,8 @@ async function poll() {
     else {
       state = { status: 'ok', data: await res.json(), receivedAt: Date.now() };
       lastData = state.data;
+      twitch.noteNowPlaying(state.data.track?.id || null);
+      state.data.requestedBy = twitch.requestedBy(state.data.track?.id);
     }
   } catch {
     state = { status: 'offline' };
@@ -170,7 +195,11 @@ ipcMain.handle('api:transfer', async (_e, id) => {
   setTimeout(poll, 800);
   return r;
 });
-ipcMain.handle('api:queue', () => request('GET', '/api/queue', log));
+ipcMain.handle('api:queue', async () => {
+  const r = await request('GET', '/api/queue', log);
+  if (r.ok && Array.isArray(r.data?.queue)) r.data.queue = r.data.queue.map(t => ({ ...t, requestedBy: twitch.requestedBy(t.id) }));
+  return r;
+});
 ipcMain.handle('api:queue-skip', async (_e, count) => {
   const n = Math.round(Number(count));
   if (!(n >= 1 && n <= 25)) return { ok: false, status: 0, data: null };
@@ -273,6 +302,7 @@ function pushSettingsToOverlay() {
 ipcMain.on('drawer:toggle', (_e, mode) => toggleDrawer(mode));
 ipcMain.on('mini:toggle', () => setMini(!mini));
 ipcMain.on('settings:open', () => openSettings());
+ipcMain.on('settings:close', e => { if (settingsWin && !settingsWin.isDestroyed() && e.sender === settingsWin.webContents) settingsWin.close(); });
 
 // ---- overlay window --------------------------------------------------------
 function createWindow() {
@@ -327,9 +357,25 @@ function stopDrag() {
   saveSettings({ bounds: win.getBounds() });
 }
 
+let solid = false;                 // the overlay is currently catching clicks instead of passing them through
 ipcMain.on('interactive', (_e, on) => {
+  solid = !!on;
   if (win && !win.isDestroyed() && !moveMode) win.setIgnoreMouseEvents(!on, { forward: true });
 });
+
+// Safety net: the page normally reports when the cursor leaves, but that report can be lost (a game
+// grabbing the mouse for camera control, a fast exit). If the overlay is still solid while the cursor
+// is nowhere near it, turn click-through back on so the game gets its clicks.
+function cursorOver(point, b) {
+  return point.x >= b.x && point.x < b.x + b.width && point.y >= b.y && point.y < b.y + b.height;
+}
+setInterval(() => {
+  if (!solid || !win || win.isDestroyed() || moveMode || dragTimer || resizeTimer) return;
+  if (cursorOver(screen.getCursorScreenPoint(), win.getBounds())) return;
+  solid = false;
+  win.setIgnoreMouseEvents(true, { forward: true });
+  send('unhover');
+}, 150);
 
 ipcMain.on('lock:set', (_e, on) => {
   saveSettings({ locked: !!on });
@@ -507,13 +553,15 @@ ipcMain.handle('lib:play-playlist', (e, uri, kind) => playFromLibrary(e, '/api/p
 // ---- settings window -----------------------------------------------------------
 function openSettings() {
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.show(); settingsWin.focus(); return; }
+  const room = screen.getPrimaryDisplay().workAreaSize.height;
   settingsWin = new BrowserWindow({
-    width: 540, height: 680, title: 'Rogue Radio Overlay Settings',
+    width: 540, height: Math.min(680, room - 20), title: 'Rogue Radio Overlay Settings',
     resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
     backgroundColor: '#0f0c09',
     webPreferences: { preload: path.join(__dirname, 'settings-preload.js'), contextIsolation: true, sandbox: true },
   });
   settingsWin.setMenuBarVisibility(false);
+  settingsWin.setAlwaysOnTop(true, 'screen-saver', 1);   // the overlay floats at that level; keep Settings (and its close button) above it
   settingsWin.loadFile(path.join(__dirname, '..', 'renderer', 'settings.html'));
   settingsWin.on('closed', () => { settingsWin = null; registerAllHotkeys(); });   // in case it closed mid-recording
   app.focus({ steal: true });                       // menu bar apps have no Dock icon to bring it forward
@@ -563,6 +611,7 @@ ipcMain.handle('settings:get', e => {
     status,
     mode: lastData?.mode || 'api',
     needsReauth: !!lastData?.needsReauth,
+    twitch: twitch.status(),
   };
 });
 
@@ -578,6 +627,7 @@ ipcMain.handle('settings:set', (e, patch) => {
   applyOpacity();
   applyDockPreference();
   pushSettingsToOverlay();
+  if (Object.keys(clean).some(k => k.startsWith('twitch'))) twitch.apply();
   return { ok: true };
 });
 
@@ -643,6 +693,14 @@ async function disconnectAccount() {
   lastData = null;
   poll();
 }
+
+ipcMain.handle('twitch:connect', async (e, clientId) => {
+  if (!fromSettingsWindow(e)) return { ok: false, error: 'Not allowed' };
+  try { saveSettings({ twitchClientId: String(clientId || '').trim().slice(0, 60) }); return { ok: true, ...(await twitch.connect(clientId)) }; }
+  catch (err) { return { ok: false, error: err.message }; }
+});
+ipcMain.handle('twitch:disconnect', e => { if (fromSettingsWindow(e)) twitch.disconnect(); return { ok: true }; });
+ipcMain.handle('twitch:cancel', e => { if (fromSettingsWindow(e)) twitch.cancelSignIn(); return { ok: true }; });
 
 ipcMain.handle('auth:logout', async e => {
   if (!fromSettingsWindow(e)) return { ok: false };
@@ -756,6 +814,7 @@ function buildAppMenus() {
       showOrHide, miniItem, { type: 'separator' },
       panel('Lyrics', 'lyrics'), panel('Add to Playlist', 'playlists'), panel('Queue', 'queue'), panel('Devices', 'devices'),
     ] },
+    { role: 'editMenu' },                                  // without it, Cmd+C / Cmd+V do nothing in text boxes
     { label: 'Window', role: 'windowMenu' },
   ]));
 
@@ -781,6 +840,7 @@ app.whenReady().then(async () => {
 
   poll();
   setInterval(poll, POLL_MS);
+  twitch.apply();
 });
 
 app.on('window-all-closed', e => e.preventDefault());   // stay alive: the overlay is the app
@@ -789,7 +849,7 @@ app.on('activate', () => {
   if (!win) return;
   if (!visible) setVisible(true); else openSettings();
 });
-app.on('will-quit', () => require('electron').globalShortcut.unregisterAll());
+app.on('will-quit', () => { twitch.stop(); require('electron').globalShortcut.unregisterAll(); });
 // ---- quitting: optionally close Spotify too ---------------------------------------------
 // before-quit must be cancelled synchronously, so we cancel it, decide asynchronously, then call
 // quit() again with `quitApproved` set. Restart uses app.exit(), which skips this on purpose.

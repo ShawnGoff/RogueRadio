@@ -222,7 +222,7 @@ async function loadQueue() {
   const r = await window.radio.queue();
   if (drawer !== 'queue') return;
   if (!r.ok) return showList([], explain(r));
-  showList((r.data.queue || []).map((t, i) => makeRow(t.name, t.artist, {
+  showList((r.data.queue || []).map((t, i) => makeRow(t.name, t.requestedBy ? `${t.artist} · ${t.requestedBy}` : t.artist, {
     onClick: async () => {
       toast(`Skipping to ${t.name}...`, true);
       const res = await window.radio.skipToQueue(i + 1);          // queue[0] is the next song, so it is 1 skip away
@@ -291,7 +291,9 @@ function render(state) {
   document.body.classList.toggle('local', mode === 'local');      // no account connected: some buttons need one
   const spotifyClosed = mode === 'local' && spotifyRunning === false;
   $('name').textContent = track?.name || (spotifyClosed ? 'Spotify is not running' : 'Nothing playing');
-  $('artist').textContent = track?.artist || (spotifyClosed ? 'Open the Spotify app to get started' : '');
+  const requester = state.data.requestedBy;                     // a Twitch viewer asked for this song
+  $('artist').textContent = track ? track.artist + (requester ? ` · requested by ${requester}` : '')
+    : (spotifyClosed ? 'Open the Spotify app to get started' : '');
   $('art').style.backgroundImage = track?.imageUrl ? `url("${track.imageUrl}")` : 'none';
 
   if (track) {
@@ -466,6 +468,12 @@ document.addEventListener('mouseleave', () => {
   document.body.classList.remove('grab');
   wake();
 });
+window.radio.onUnhover(() => {
+  interactive = false;
+  hovering = false;
+  document.body.classList.remove('grab');
+  wake();
+});
 document.addEventListener('mousedown', e => {
   if (e.button !== 0) return;
   // Unlocked: drag from any empty part of the card. Shift: drag from anywhere, even when locked.
@@ -518,6 +526,10 @@ window.radio.onMini(mini => { document.body.classList.toggle('mini', !!mini); wa
 window.radio.onSettings(s => { cfg = { ...cfg, ...s }; if ('locked' in s) setLockedUI(s.locked); wake(); });
 window.radio.onWake(wake);
 window.radio.onState(render);
+window.radio.onRequest(ev => {
+  if (ev.type === 'added') toast(`${ev.user} requested ${ev.name}`, true);
+  else toast(`Twitch request: ${ev.reason}`);                    // only problems with the setup reach here, not viewer mistakes
+});
 window.radio.onMoveMode(on => { document.body.classList.toggle('move', on); wake(); });
 
 setInterval(tickProgress, 250);

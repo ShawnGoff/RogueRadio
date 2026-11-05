@@ -40,6 +40,18 @@ Controls that change playback need **Spotify Premium** and an active Spotify dev
 
 To go back to no-account mode, choose **Disconnect Spotify account** in the menu bar menu or in Settings.
 
+## Twitch song requests (optional)
+
+Viewers can add songs to your Spotify queue from Twitch chat. It needs your Spotify account connected (adding to the queue isn't possible in no-account mode).
+
+1. In **Settings > Twitch song requests**, turn it on and enter your channel name.
+2. Pick who can request: followers and subscribers (default), subscribers only, everyone, or mods only.
+3. Viewers type `!sr song name` or `!sr` plus a Spotify song link. Mods and you can type `!skip`.
+
+Subscribers, VIPs and mods are recognised straight from chat, with no Twitch login. Checking **followers** needs your Twitch account connected once: register a free app at [dev.twitch.tv/console](https://dev.twitch.tv/console) with Client Type **Public** (redirect URL `http://localhost`), paste its Client ID into Settings and click **Connect Twitch**. Only the "read followers" permission is requested, and it works for your own channel.
+
+Limits you can set: wait between one viewer's requests, songs per viewer, requests waiting at once, longest song, explicit songs, and a blocked-words list. The overlay shows "requested by NAME" on the current song and in the queue list. The app only reads chat, so it doesn't reply in chat. Twitch can mute VODs that contain copyrighted music; that is up to you to manage.
+
 ## Moving and resizing the overlay
 
 **Resize:** hover the overlay and drag the small handle in its **bottom-right corner**. Double-click the handle to reset to 100%. You can also use **Settings → Size** (80% to 200%). Resizing works any time, even while the position is locked.

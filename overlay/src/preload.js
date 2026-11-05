@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('radio', {
   onDrawer: cb => on('drawer', cb),      // mode | null
   onMini: cb => on('mini', cb),          // bool
   onSettings: cb => on('settings', cb),  // { autoHide, autoHideSeconds }
+  onRequest: cb => on('request', cb),    // { type: 'added'|'rejected', user, name, artist, reason }
+  onUnhover: cb => on('unhover', cb),    // main saw the cursor leave while the page still thought it was over
   onWake: cb => on('wake', cb),
   onMoveMode: cb => on('move-mode', cb),
 });

@@ -279,6 +279,8 @@ class SpotifyClient {
         id: t.id, uri: t.uri, name: t.name,
         artist: (t.artists || [])[0]?.name || '',
         album: t.album?.name || '',
+        explicit: !!t.explicit,
+        durationMs: t.duration_ms ?? null,
         imageUrl: smallest(t.album?.images)
       })),
       artists: items('artists').map(a => ({
@@ -453,6 +455,31 @@ class SpotifyClient {
   async transferPlayback(deviceId) {
     await this.apiCall('PUT', '/me/player', { device_ids: [deviceId], play: true });
     return true;
+  }
+
+  // Put one song at the end of the queue (what Twitch requests use). Like starting playback, it
+  // retries on an available device when nothing is active.
+  async addToQueue(uri) {
+    const endpoint = `/me/player/queue?${new URLSearchParams({ uri })}`;
+    try {
+      return await this.apiCall('POST', endpoint);
+    } catch (error) {
+      if (error.status !== 404) throw error;
+      const devices = await this.getDevices();
+      const device = devices.find(d => d.type === 'Computer') || devices[0];
+      if (!device) throw error;
+      return await this.apiCall('POST', `${endpoint}&${new URLSearchParams({ device_id: device.id })}`);
+    }
+  }
+
+  async getTrack(id) {
+    const t = await this.apiCall('GET', `/tracks/${encodeURIComponent(id)}`);
+    return {
+      id: t.id, uri: t.uri, name: t.name,
+      artist: (t.artists || [])[0]?.name || '',
+      explicit: !!t.explicit,
+      durationMs: t.duration_ms ?? null
+    };
   }
 
   async getQueue() {

@@ -16,7 +16,7 @@ const needsAccount = (req, res, next) => {
   if (spotifyClient.isAuthenticated()) return next();
   res.status(403).json({ error: 'This needs a connected Spotify account (Settings > Connect).', code: 'NEEDS_SPOTIFY_LOGIN' });
 };
-router.use(['/like', '/playlists', '/devices', '/queue', '/search', '/play-uri', '/play-context'], needsAccount);
+router.use(['/like', '/playlists', '/devices', '/queue', '/search', '/track', '/play-uri', '/play-context'], needsAccount);
 
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -385,6 +385,23 @@ router.post('/queue/skip-to', async (req, res) => {
     await spotifyClient.skipForward(count);
     res.json({ success: true, skipped: count });
   } catch (error) { fail(res, error, 'QUEUE_SKIP_ERROR'); }
+});
+
+router.post('/queue/add', async (req, res) => {
+  try {
+    const { uri } = req.query;
+    if (!/^spotify:track:[A-Za-z0-9]{10,30}$/.test(uri || '')) return bad(res, 'Invalid or missing track uri');
+    await spotifyClient.addToQueue(uri);
+    res.json({ success: true });
+  } catch (error) { fail(res, error, 'QUEUE_ADD_ERROR'); }
+});
+
+router.get('/track', async (req, res) => {
+  try {
+    const { id } = req.query;
+    if (!/^[A-Za-z0-9]{10,30}$/.test(id || '')) return bad(res, 'Invalid or missing track id');
+    res.json(await spotifyClient.getTrack(id));
+  } catch (error) { fail(res, error, 'TRACK_LOOKUP_ERROR'); }
 });
 
 router.get('/queue', async (req, res) => {

@@ -127,8 +127,8 @@ test('search asks for songs, artists and albums together and maps each', async (
   assert.strictEqual(u.searchParams.get('include_external'), 'audio');
   assert.strictEqual(u.searchParams.get('offset'), '0');
   assert.deepStrictEqual(out.tracks, [
-    { id: 't1', uri: 'spotify:track:t1', name: 'Song', artist: 'Band', album: 'LP', imageUrl: 'small' },
-    { id: 't2', uri: 'spotify:track:t2', name: 'Other', artist: '', album: '', imageUrl: null },
+    { id: 't1', uri: 'spotify:track:t1', name: 'Song', artist: 'Band', album: 'LP', explicit: false, durationMs: null, imageUrl: 'small' },
+    { id: 't2', uri: 'spotify:track:t2', name: 'Other', artist: '', album: '', explicit: false, durationMs: null, imageUrl: null },
   ]);
   assert.deepStrictEqual(out.artists, [{ id: 'a1', uri: 'spotify:artist:a1', name: 'Band', imageUrl: 'y' }]);
   assert.deepStrictEqual(out.albums, [{ id: 'l1', uri: 'spotify:album:l1', name: 'LP', artist: 'Band', year: '2019', imageUrl: null }]);
@@ -262,6 +262,30 @@ test('devices, transfer and queue map Spotify shapes', async () => {
   assert.deepStrictEqual(calls[0].data, { device_ids: ['d1'], play: true });
 });
 
+test('addToQueue POSTs the uri; with no active device it retries on an available one', async () => {
+  calls.length = 0;
+  handler = () => ({ status: 204, data: '' });
+  await spotify.addToQueue(URI);
+  assert.deepStrictEqual([calls[0].method, path_(calls[0].url)], ['POST', `/me/player/queue?uri=${URI}`]);
+
+  calls.length = 0;
+  handler = (m, url) => {
+    const p = path_(url);
+    if (p === '/me/player/devices') return { status: 200, data: { devices: [{ id: 'd1', name: 'Mac', type: 'Computer' }] } };
+    return p.includes('device_id') ? { status: 204, data: '' } : { status: 404, data: { error: { message: 'No active device' } } };
+  };
+  await spotify.addToQueue(URI);
+  assert.strictEqual(path_(calls.at(-1).url), `/me/player/queue?uri=${URI}&device_id=d1`);
+
+  handler = () => ({ status: 404, data: { error: { message: 'none' } } });
+  await assert.rejects(spotify.addToQueue(URI), e => e.status === 404);          // no device anywhere
+});
+
+test('getTrack maps a song for the request rules', async () => {
+  handler = () => ({ status: 200, data: { id: 'abc', uri: 'spotify:track:abc', name: 'S', artists: [{ name: 'B' }], explicit: true, duration_ms: 123000 } });
+  assert.deepStrictEqual(await spotify.getTrack('abc'), { id: 'abc', uri: 'spotify:track:abc', name: 'S', artist: 'B', explicit: true, durationMs: 123000 });
+});
+
 test('403 about scope becomes INSUFFICIENT_SCOPE', async () => {
   handler = () => ({ status: 403, data: { error: { message: 'Insufficient client scope' } } });
   await assert.rejects(() => spotify.setLiked(URI, true), e => e.code === 'INSUFFICIENT_SCOPE' && e.status === 403);
@@ -281,6 +305,9 @@ test('routes validate input before calling Spotify', async () => {
   assert.strictEqual(await post('/devices/transfer?id=x'), 400);                          // bad device id
   assert.strictEqual(await post('/play-uri?uri=spotify:album:aaaaaaaaaaaa'), 400);       // not a song
   assert.strictEqual(await post('/play-context?uri=spotify:track:aaaaaaaaaaaa'), 400);    // not a playlist/album/artist
+  assert.strictEqual(await post('/queue/add?uri=spotify:album:aaaaaaaaaaaa'), 400);     // only songs go in the queue
+  assert.strictEqual(await post('/queue/add'), 400);
+  assert.strictEqual((await fetch(base + '/track?id=../me')).status, 400);                // bad track id
   assert.strictEqual(await post('/queue/skip-to?count=0'), 400);                          // can't skip zero
   assert.strictEqual(await post('/queue/skip-to?count=26'), 400);                         // or an absurd amount
   assert.strictEqual(await post('/queue/skip-to?count=abc'), 400);

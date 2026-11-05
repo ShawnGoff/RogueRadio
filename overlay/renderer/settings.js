@@ -11,6 +11,9 @@ const STATUS_TEXT = {
   error: ['Companion server error', 'bad'],
 };
 
+const CHAT_TEXT = { off: 'Off', connecting: 'Connecting to Twitch chat...', listening: 'Listening to chat', reconnecting: 'Reconnecting to Twitch chat...' };
+const setVal = (id, v) => { if (document.activeElement !== $(id)) $(id).value = v; };    // never overwrite what is being typed
+
 let capturing = null;
 let loginMode = null;       // 'login' | 'switch' | 'automation' | null (what the Spotify button does)       // action currently being recorded
 
@@ -56,9 +59,40 @@ async function load() {
   $('startAtLogin').disabled = !data.canStartAtLogin;
   $('loginNote').textContent = data.canStartAtLogin ? '' : 'Available in the installed app (not when running from source).';
 
+  renderTwitch(s, data.twitch, data.mode);
+
   $('preset').value = data.preset;
   $('customOpt').disabled = data.preset !== 'custom';
   renderHotkeys(hotkeys);
+}
+
+function renderTwitch(s, t, mode) {
+  $('twitchEnabled').checked = s.twitchEnabled;
+  setVal('twitchChannel', s.twitchChannel);
+  setVal('twitchClientId', s.twitchClientId);
+  $('twitchWho').value = s.twitchWho;
+  setVal('twitchCooldown', s.twitchCooldown);
+  setVal('twitchPerUser', s.twitchPerUser);
+  setVal('twitchMaxQueue', s.twitchMaxQueue);
+  setVal('twitchMaxMinutes', s.twitchMaxMinutes);
+  $('twitchBlockExplicit').checked = s.twitchBlockExplicit;
+  setVal('twitchBlocklist', s.twitchBlocklist);
+
+  let line = !s.twitchEnabled ? 'Requests are off.'
+    : !t.channel ? 'Enter your channel name to start.'
+    : (CHAT_TEXT[t.chat] || '') + (t.chat === 'listening' && t.waiting ? ` - ${t.waiting} request(s) waiting` : '');
+  if (s.twitchEnabled && mode === 'local') line += ' Connect your Spotify account above: requests can only be queued with one.';
+  if (s.twitchEnabled && t.channel && s.twitchWho === 'followers' && !t.followerCheck) line += ' Follower check is off, so only subscribers, VIPs and mods can request. Connect Twitch below with this channel\'s account.';
+  $('twitchStatus').textContent = line;
+
+  $('twitchDot').className = 'dot ' + (t.connected ? 'ok' : '');
+  $('twitchAccount').textContent = t.connected ? `Connected as ${t.login}` : t.signIn ? 'Waiting for approval...' : 'Not connected';
+  $('twitchDisconnect').style.display = t.connected ? '' : 'none';
+  $('twitchConnect').style.display = t.connected ? 'none' : '';
+  $('twitchConnect').textContent = t.signIn ? 'Cancel' : 'Connect Twitch';
+  $('twitchCodeBox').style.display = t.signIn ? '' : 'none';
+  $('twitchCode').textContent = t.signIn ? t.signIn.userCode : '';
+  $('twitchErr').textContent = t.signInError || '';
 }
 
 function renderHotkeys(hotkeys) {
@@ -150,8 +184,24 @@ $('showInDock').addEventListener('change', e => api.set({ showInDock: e.target.c
 $('startAtLogin').addEventListener('change', e => api.set({ startAtLogin: e.target.checked }));
 $('loginBtn').addEventListener('click', () => (loginMode === 'automation' ? api.openAutomation() : api.login(loginMode === 'switch')));
 $('logoutBtn').addEventListener('click', async () => { await api.logout(); setTimeout(load, 1500); });
+for (const id of ['twitchEnabled', 'twitchBlockExplicit']) $(id).addEventListener('change', e => api.set({ [id]: e.target.checked }).then(load));
+$('twitchWho').addEventListener('change', e => api.set({ twitchWho: e.target.value }).then(load));
+for (const id of ['twitchChannel', 'twitchClientId', 'twitchCooldown', 'twitchPerUser', 'twitchMaxQueue', 'twitchMaxMinutes', 'twitchBlocklist']) {
+  $(id).addEventListener('change', e => api.set({ [id]: e.target.value }).then(load));
+}
+$('twitchConnect').addEventListener('click', async () => {
+  if ($('twitchConnect').textContent === 'Cancel') { await api.twitchCancel(); return load(); }
+  $('twitchErr').textContent = '';
+  const r = await api.twitchConnect($('twitchClientId').value);
+  await load();
+  if (!r.ok) $('twitchErr').textContent = r.error;
+});
+$('twitchDisconnect').addEventListener('click', async () => { await api.twitchDisconnect(); load(); });
 $('preset').addEventListener('change', async e => { $('hotkeyErr').textContent = ''; await api.setPreset(e.target.value); load(); });
 $('resetKeys').addEventListener('click', async () => { $('hotkeyErr').textContent = ''; await api.resetHotkeys(); load(); });
+
+$('doneBtn').addEventListener('click', () => api.close());
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !capturing) api.close(); });
 
 api.onChange(() => { if (!capturing) load(); });
 load();

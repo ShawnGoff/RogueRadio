@@ -22,6 +22,10 @@
   button.primary { background: #4d3a10; border-color: var(--gold); color: var(--gold); }
   input[type=range] { accent-color: var(--amber); width: 160px; }
   input[type=checkbox] { accent-color: var(--amber); width: 16px; height: 16px; }
+  input[type=text], input[type=number], textarea { background: #241c10; color: var(--text); border: 1px solid #735a1f; border-radius: 5px; padding: 3px 6px; font: inherit; user-select: text; }
+  input[type=text] { width: 190px; } input[type=number] { width: 64px; }
+  textarea { width: 100%; height: 48px; resize: none; margin: 6px 0; }
+  .code { font-size: 20px; letter-spacing: .15em; color: var(--gold); text-align: center; padding: 8px 0 2px; user-select: text; }
   select { background: #241c10; color: var(--text); border: 1px solid #735a1f; border-radius: 5px; padding: 3px 6px; }
   .status { display: flex; align-items: center; gap: 8px; }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); }
@@ -82,6 +86,38 @@
   <div class="note" id="loginNote"></div>
   <div class="note" id="dockNote">If the overlay stops appearing above a fullscreen app, turn off "Show in the Dock".</div>
 
+  <h2>Twitch song requests</h2>
+  <div class="card">
+    <div class="row"><span>Take requests from Twitch chat <span class="note">(needs a connected Spotify account)</span></span><input type="checkbox" id="twitchEnabled"></div>
+    <div class="row"><span>Your channel</span><input type="text" id="twitchChannel" placeholder="yourchannel" spellcheck="false"></div>
+    <div class="row">
+      <span>Who can request</span>
+      <select id="twitchWho">
+        <option value="followers">Followers and subscribers</option>
+        <option value="subscribers">Subscribers only</option>
+        <option value="everyone">Everyone</option>
+        <option value="mods">Mods only</option>
+      </select>
+    </div>
+    <div class="row"><span>Wait between one viewer's requests</span><span><input type="number" id="twitchCooldown" min="0" max="600"> s</span></div>
+    <div class="row"><span>Songs per viewer in the queue</span><input type="number" id="twitchPerUser" min="1" max="20"></div>
+    <div class="row"><span>Requests waiting at once</span><input type="number" id="twitchMaxQueue" min="1" max="50"></div>
+    <div class="row"><span>Longest song allowed</span><span><input type="number" id="twitchMaxMinutes" min="1" max="60"> min</span></div>
+    <div class="row"><span>Block explicit songs</span><input type="checkbox" id="twitchBlockExplicit"></div>
+    <div style="padding: 6px 0"><div>Blocked words <span class="note">(song or artist names, comma separated)</span></div><textarea id="twitchBlocklist" spellcheck="false"></textarea></div>
+  </div>
+  <div class="note" id="twitchStatus"></div>
+  <div class="note">Viewers type <b>!sr song name</b> or <b>!sr</b> with a Spotify song link. Mods can type <b>!skip</b>. Subscribers, VIPs and mods are recognised straight from chat. Checking <i>followers</i> needs your Twitch account connected below, and works for your own channel.</div>
+
+  <h2>Twitch account <span class="note">(only for the follower check)</span></h2>
+  <div class="card">
+    <div class="row"><div class="status"><span class="dot" id="twitchDot"></span><span id="twitchAccount">Not connected</span></div><span style="display:flex; gap:6px"><button id="twitchDisconnect" style="display:none">Disconnect</button><button id="twitchConnect" class="primary">Connect Twitch</button></span></div>
+    <div class="row"><span>Twitch Client ID</span><input type="text" id="twitchClientId" placeholder="from dev.twitch.tv/console" spellcheck="false"></div>
+    <div id="twitchCodeBox" style="display:none"><div class="code" id="twitchCode"></div><div class="note" style="text-align:center; margin-bottom:8px">Enter this code on the Twitch page that just opened, then approve.</div></div>
+  </div>
+  <div class="err" id="twitchErr"></div>
+  <div class="note">One-time setup: register a free app at dev.twitch.tv/console with Client Type set to <b>Public</b> (any name, and <code>http://localhost</code> as the redirect), then paste its Client ID here. Only the "read followers" permission is requested, and no password is shared with this app.</div>
+
   <h2>Keyboard shortcuts</h2>
   <div class="card">
     <div class="row">
@@ -97,6 +133,8 @@
   <div class="card" id="hotkeys" style="margin-top:10px"></div>
   <div class="err" id="hotkeyErr"></div>
   <div class="actions"><button id="resetKeys">Reset to default set</button></div>
+
+  <div class="actions" style="margin-top:18px"><button class="primary" id="doneBtn">Done</button></div>
 
   <script src="settings.js"></script>
 </body>
