@@ -100,6 +100,10 @@ The app writes a small log to `~/.rogue-radio-overlay/overlay.log` (what it trie
 - Audiobooks are only available in the US, UK, Canada, Ireland, New Zealand and Australia.
 - Spotify's documentation only describes songs, albums, artists and playlists as playable from the API. Podcasts and audiobooks are tried directly first and, if Spotify refuses, the newest episode or the first chapter is started instead.
 
+## License
+
+[PolyForm Noncommercial 1.0.0](LICENSE): free to use, modify and share for noncommercial purposes. You may not sell it or use it commercially.
+
 ## Credits
 
 Lyrics provided by LRCLIB. Not affiliated with Spotify.

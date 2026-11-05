@@ -9,7 +9,7 @@
     "pack": "electron-builder --mac dir",
     "test": "node --test test/*.test.js"
   },
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^26.15.3"
