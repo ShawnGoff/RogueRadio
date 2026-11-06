@@ -1,8 +1,15 @@
 # Rogue Radio Overlay
 
+[![Tests](https://github.com/ShawnGoff/RogueRadio/actions/workflows/test.yml/badge.svg)](https://github.com/ShawnGoff/RogueRadio/actions/workflows/test.yml)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue)](LICENSE)
+
 A small always-on-top Spotify controller for your desktop. It floats above games and other
 apps, shows what's playing, and gives you clickable controls plus global keyboard shortcuts.
 Everything runs on your own computer; your Spotify login never leaves it.
+
+![The overlay showing a song a Twitch viewer requested](docs/overlay.png)
+
+*The overlay, with a song requested from Twitch chat. (Sample track and a simulated request, for the picture.)*
 
 ## Features
 
@@ -52,6 +59,8 @@ Subscribers, VIPs and mods are recognised straight from chat, with no Twitch log
 
 Limits you can set: wait between one viewer's requests, songs per viewer, requests waiting at once, longest song, explicit songs, and a blocked-words list. The overlay shows "requested by NAME" on the current song and in the queue list. The app only reads chat, so it doesn't reply in chat. Twitch can mute VODs that contain copyrighted music; that is up to you to manage.
 
+![Twitch request settings](docs/settings-twitch.png)
+
 ## Moving and resizing the overlay
 
 **Resize:** hover the overlay and drag the small handle in its **bottom-right corner**. Double-click the handle to reset to 100%. You can also use **Settings → Size** (80% to 200%). Resizing works any time, even while the position is locked.
@@ -73,6 +82,13 @@ Hold **Ctrl** and press a number-pad key (keep Num Lock on). No Alt/Option key n
 | Num . | Search & Play window | | |
 
 No number pad? In **Settings**, switch the shortcut set to **Alt + Shift + letters** (for example Alt+Shift+Space for play/pause, Alt+Shift+F for Search & Play), or click **Change** on any row to record your own.
+
+## How it's built
+
+- **Overlay (`overlay/`)**: an Electron app. A frameless, transparent, always-on-top window that is click-through until the cursor is over it; the main process owns settings, global shortcuts, the tray and the Search & Play window, and talks to the server over a local REST API.
+- **Local server (`src/`)**: a small Express server bound to `127.0.0.1` that rejects any request carrying a browser Origin header. It controls Spotify two ways: the Spotify Web API (OAuth, with token refresh and device fallback) when an account is connected, or AppleScript on macOS when it isn't. Lyrics come from LRCLIB with a local cache.
+- **Twitch song requests (`overlay/src/twitch-*.js`, `requests.js`)**: an anonymous read-only IRC client over TLS (no dependency) feeds a rules engine (access level, cooldowns, limits, blocklist). Follower checks use Twitch's device-code sign-in, so no client secret or redirect page is needed.
+- **Tests**: Node's built-in test runner with a mocked Spotify and Twitch, a local fake IRC server, and a real AppleScript compile check. GitHub Actions runs them on every push.
 
 ## Development
 

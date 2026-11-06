@@ -1,0 +1,26 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # macOS: the local-mode tests compile AppleScript with osacompile, which only exists there
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Server tests
+        working-directory: src
+        run: |
+          npm ci
+          npm test
+      - name: Overlay tests
+        working-directory: overlay
+        run: |
+          npm ci --ignore-scripts
+          npm test
