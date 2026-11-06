@@ -11,7 +11,7 @@
   },
   "license": "PolyForm-Noncommercial-1.0.0",
   "devDependencies": {
-    "electron": "^33.0.0",
+    "electron": "^42.11.16",
     "electron-builder": "^26.15.3"
   },
   "build": {
