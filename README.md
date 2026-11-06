@@ -11,6 +11,8 @@ Everything runs on your own computer; your Spotify login never leaves it.
 
 *The overlay, with a song requested from Twitch chat. (Sample track and a simulated request, for the picture.)*
 
+**[Download for Mac](https://github.com/ShawnGoff/RogueRadio/releases/latest)** (unsigned: right-click the app and choose Open the first time).
+
 ## Features
 
 - Album art, song, artist, progress bar (click to seek) and volume
@@ -101,7 +103,7 @@ npm run dist                   # builds the macOS installer into overlay/dist
 
 Tests: `cd src && npm test` (server, with a mocked Spotify that never touches your account) and `cd overlay && npm test`.
 
-There are no prebuilt downloads yet. Builds you make yourself are unsigned, so macOS may ask you to right-click the app and choose Open the first time. Windows isn't supported yet; the no-account mode relies on AppleScript, so it is Mac-only.
+Prebuilt Mac downloads are on the [Releases page](https://github.com/ShawnGoff/RogueRadio/releases). Builds are unsigned, so macOS may ask you to right-click the app and choose Open the first time. Windows isn't supported yet; the no-account mode relies on AppleScript, so it is Mac-only.
 
 ## Where things are stored
 
