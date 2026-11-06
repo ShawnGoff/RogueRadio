@@ -76,5 +76,11 @@
     "axios": "^1.20.0",
     "dotenv": "^16.6.1",
     "express": "^4.22.3"
+  },
+  "author": "Shawn Goff",
+  "homepage": "https://github.com/ShawnGoff/RogueRadio",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShawnGoff/RogueRadio.git"
   }
 }

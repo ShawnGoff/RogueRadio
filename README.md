@@ -83,7 +83,9 @@ npm start                      # runs the overlay; it starts the server for you
 npm run dist                   # builds the macOS installer into overlay/dist
 ```
 
-Server tests: `cd src && npm test` (uses a mocked Spotify; never touches your account).
+Tests: `cd src && npm test` (server, with a mocked Spotify that never touches your account) and `cd overlay && npm test`.
+
+There are no prebuilt downloads yet. Builds you make yourself are unsigned, so macOS may ask you to right-click the app and choose Open the first time. Windows isn't supported yet; the no-account mode relies on AppleScript, so it is Mac-only.
 
 ## Where things are stored
 
@@ -106,4 +108,4 @@ The app writes a small log to `~/.rogue-radio-overlay/overlay.log` (what it trie
 
 ## Credits
 
-Lyrics provided by LRCLIB. Not affiliated with Spotify.
+Lyrics provided by LRCLIB. Not affiliated with, endorsed by or sponsored by Spotify or Twitch; those names belong to their owners.
