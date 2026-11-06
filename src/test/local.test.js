@@ -79,7 +79,8 @@ test('controls send the right AppleScript, with values cleaned', async () => {
 // word slipped through once), so compile every script we can send with the real compiler. Compiling
 // never runs anything, so Spotify is not touched. Skipped where Spotify/osacompile are unavailable.
 const probeOut = path.join(process.env.DATA_DIR, 'probe.scpt');
-const canCompile = realCP.spawnSync('osacompile', ['-e', 'tell application "Spotify" to play', '-o', probeOut], { encoding: 'utf8' }).status === 0;   // compile only
+// Probe with a term only Spotify's dictionary defines ("sound volume"); a bare `play` compiles even when Spotify is missing.
+const canCompile = realCP.spawnSync('osacompile', ['-e', 'tell application "Spotify" to set sound volume to 0', '-o', probeOut], { encoding: 'utf8' }).status === 0;   // compile only
 test('every AppleScript the app sends compiles against the real Spotify dictionary', { skip: !canCompile && 'needs macOS with Spotify installed' }, async () => {
   setup();
   await local.play(); await local.pause(); await local.next(); await local.previous();
